@@ -1,0 +1,277 @@
+= Lab 3: Malloc
+CPEN 212
+:toc: macro
+:!toc-title:
+ifndef::env-github[:icons: font]
+ifdef::env-github[]
+:!toc-title:
+:caution-caption: :fire:
+:important-caption: :exclamation:
+:note-caption: :paperclip:
+:tip-caption: :bulb:
+:warning-caption: :warning:
+endif::[]
+
+
+In this lab, you will build a simple implementation of `malloc()`, `free()`, and `realloc()`.
+
+As usual, the ideas are pretty simple -- we covered the structures and actions in detail in lecture. What is hard here is debugging (surprise!). First, you are doing a lot of pointer arithmetic, which is tricky to get right to begin with. Even more insidiously, errors can show up as crashes many operations after you screwed up a block header.
+
+toc::[]
+
+
+== Prerequisites
+
+Make sure you review the memory allocation lectures and understand how the implicit freelist allocation works, how the allocated block is represented with its header(s), and what is returned by `malloc()`.
+
+Don't skip this step. If you don't grok memory allocation backwards and forwards, you will not go to space today.
+
+
+== Logistics
+
+Task 1 is a hand-holdy exercise in implementing a linked list in a weird way. It might seem unrelated, but will help you get used to how heap blocks are structured and accessed. The remaining tasks ask you to implement progressively harder parts of a memory allocation system.
+
+WARNING: As in the prior lab, we will use `ssh.ece.ubc.ca` to evaluate your submissions. We have tried to make the code work across different machines, but if your submission works on some machine you have but not on `ssh.ece.ubc.ca`, you will be out of luck.
+
+Note that, as with Lab 2, Task 1 and Task 2 are due earlier than the remaining tasks.
+
+As with all work in CPEN212, all of your code must be original and written by you.
+
+
+== Task 1: a crazy list exercise
+
+=== Introduction
+
+In the `task1` folder you will find `crazylist.h` and `crazylist.c`.
+
+They contain an unusual implementation of a linked list cell. Like a normal linked list cell, it contains a value (`car`) and a pointer to the rest of the list (`cdr`). Unlike in a normal list, however, the cons cell pointer points to the *middle* of the cell rather than the beginning.
+
+We've also implemented two functions for you:
+
+* `cons` creates a new cell, and
+* `enclosing_struct` returns a pointer to the _beginning_ of the cell (since the actual cell pointer points to the middle).
+
+Why are we doing this crazy thing? If you think about it, this is how blocks on the heap are accessed. Although each block has a header, the pointer returned to the user is to the user-writable space, not to the header, This means you will eventually need to figure out how to get at the header, e.g., when `free()` is called. But this is almost exactly how this crazy list works, as well -- it's just a lot simpler with the crazy list.
+
+
+=== What you need to do
+
+First, carefully study the definition of `cons` and `enclosing_struct`.
+
+Next, implement the functions
+
+* `first`,
+* `rest`,
+* `find`,
+* `insert_sorted`, and
+* `print_list`
+
+in `crazylist.c`.
+
+Here is a tiny example of some of these functions being used:
+
+[,C]
+----
+uint64_t *list = cons(100, NULL);
+list = cons(30, list);
+list = cons(10, list);
+list = cons(5, list);
+print_list(list); // output: 5 10 30 100
+list = insert_sorted(list, 50);
+print_list(list); // output: 5 10 30 50 100
+*find(list, 10) = 20;
+print_list(list); // output: 5 20 30 50 100
+----
+
+(You will of course need to test your code more extensively to make sure it works; you can bet we will when we mark your lab.)
+
+Finally, modify the definition of `enclosing_struct` so that it *does not use* `offsetof` but it does exactly the same thing. You may use `sizeof` if you wish, but you don't have to.
+
+Your code is subject to the following restrictions:
+
+* Of the files in the initial repository, you may only modify `crazylist.c`. We will only test `crazylist.c`, which must not contain a `main()` function. We will use the initial-repository copy of the header when we compile your `crazylist.c`, so your implementation must work with that.
+* Your code may not use any libraries other than the libc linked in by default when you run the C compiler.
+
+
+=== Deliverables
+
+In `task1`:
+
+A modified `crazylist.c`, with `first`, `rest`, `find`, `insert_sorted`, and `print_list` implemented, and `enclosing_struct` reimplemented to *not* use `offsetof`.
+
+
+== Task 2: alloc and free
+
+=== Introduction
+
+In the remaining tasks, you will implement an allocator similar to `malloc`. In Task 2 you will implement the basic functionality, and in the rest you will progressively add more features (such as coalescing).
+
+You may implement an implicit freelist or an explicit freelist as you prefer. The implicit freelist version is _far_ easier to get right, though, so we recommend that you at least start with getting that to work completely.
+
+In the `task2` folder (and folders for the remaining tasks), you will find the following files:
+
+* The header `cpen212alloc.h` which defines the functions you need to implement; you may not modify this file.
+* The implementation C file `cpen212alloc.c` which you will need to modify to implement your allocator.
+* The static library `lib212alloc.a` which you can link with your allocator to do some trace-based testing (see below).
+
+Currently `cpen212alloc.c` contains the dumbest allocator we could come up with: it just allocates blocks sequentially without freeing any of them until it runs out of heap.
+
+
+=== Traces
+
+We've prepared some memory traces for you that you can use to help test your code; you will find those in the `traces` folder. There are three operations: **A**llocate, **D**eallocate, and **R**eallocate, each of which have a block identifier and possibly a size. For example,
+----
+A 3 2048
+----
+means allocate 2048 bytes and consider it allocation ID 3. You can then use
+----
+D 3
+----
+to free the memory allocated by the last allocation with ID 3. Alternately, you can change the size of allocation 3 like this
+----
+R 3 4096
+----
+If you look through the traces you will see lots of examples.
+
+To run the traces, link your allocator with `lib212alloc.a` (we have provided a makefile for this), and run the program `cpen212trace`. You will need to specify the memory trace to run as well as the maximum heap size using the `-s` option, like this:
+----
+./cpen212trace -s2147483648 traces/trace01.trc
+----
+This is a giant heap that should be sufficient for all traces we've included even with the default dumb allocator, but we will test your code with smaller heaps to make sure it's not the default trivial version.
+
+`cpen212trace` also times how long your allocator takes to complete the alloc/free/realloc requests.
+
+CAUTION: We recommend that you first test your code *without* traces: make a separate file with a `main` function and compile it together only with your `cpen212alloc.c`. This is because you don't have the sources for the trace reader, so it would be much harder to debug problems "live" in this way.
+
+
+=== What you need to do
+
+Implement
+
+* `cpen212_init()`,
+* `cpen212_deinit()`,
+* `cpen212_alloc()`, and
+* `cpen212_free()`
+
+We recommend that you use the *implicit freelist* version, which is simpler to get right.
+
+For this task, your `cpen212_free()` function *should not* do any coalescing.
+
+Finally, add a definition of 
+
+* `cpen212_realloc()`
+
+that allocates a new block, copies the contents, and deallocates the old block.
+
+Your code must also include a comment that explains the fields and layout of the blocks you allocate on the heap, including any headers or footers. If you change this layout in later tasks, you must also ducemnt the changes.
+
+Your implementation is subject to the following:
+
+* You may not allocate blocks outside the heap range passed to `cpen212_init()`.
+* The blocks you allocate must have *at least* the size requested, and must not overlap with other blocks.
+* The blocks you allocate must be aligned at an 8-byte boundary at a minimum.
+* You may only use `malloc()` in your code to create the allocator state (in `cpen212_init()`), but not to allocate blocks in `cpen212_alloc()` or `cpen212_realloc()`. Your total `malloc` usage may not exceed 1024 bytes.
+* All of the allocator state must be reachable via the allocator state pointer passed to your function, and your allocator may not rely on any other state (e.g., global variables). We will initialize multiple instances of your allocator with different heaps and check that they correctly allocate in the relevant heaps.
+* Your `cpen212alloc.c` must not contain a `main` function.
+
+We will build your submission using our own `cpen212alloc.h`, `lib212alloc.a`, and `Makefile` that match the initial repository state. They will only compile `cpen212alloc.c`, and no other `.c` files, so all the functions you need to implement need to be in `cpen212alloc.c`.
+
+
+=== Deliverables
+
+In `task2`:
+
+* A modified `cpen212alloc.c` with your allocator implemented as described above.
+
+
+=== Hints
+
+- Remember that the pointer returned to the caller *must not include the header(s)*.
+
+- While the caller may request arbitrary allocation sizes, your allocator must always return blocks allocated on an 8-byte boundary. This means the block size will be a multiple of 8, and you can use the lowest bits for something else if you are careful.
+
+
+== Task 3: heap consistency checker
+
+This task is nominally not required to complete the lab, but we *highly recommend* that you do it before proceeding to task 4. Coalescing is much tricker than allocating and freeing, and a heap checker will make your life much easier for debugging that.
+
+
+Your consistency checker will probably want to walk through the entire heap, examining all the blocks and checking for invariants like these:
+
+* Do all the headers have reasonable sizes (e.g., non-zero)?
+* Do any allocated blocks overlap?
+* Are any allocated blocks _much_ larger than the requested size?
+
+If you're using an explicit freelist implementation, it would also make sense that the explicit freelist you keep has exactly the same blocks as the unallocated blocks on the heap, and so on.
+
+You should think of as many invariants to check as you can.
+
+Many invariants you might want to check might require tracking substantial metadata -- for example, you might need to keep a copy of all the `cpen212_alloc`, `cpen212_mealloc`, and `cpen212_free` requests and the address ranges for the allocated blocks. To implement the checker, therefore, you may use `malloc` to allocate as much memory as you wish for storing whatever you like, as long as this data is only used in the consistency checker and not the rest of the allocator.
+
+Your consistency checker does not have to be fast -- you will only use it for debugging. This means you can use very basic data structures, such as lists or arrays to represent intervals rather than a fancy datastructure like an interval tree.
+
+However, in the final version of the code you submit you must disable the consistency checker, as we will measure how long your allocation functions take.
+
+
+=== What you need to do
+
+Extend your implementation from the previous task by adding a heap consistency checker as `cpen212_check_consistency()` in `cpen212alloc.c`.
+
+
+=== Deliverables
+
+In `task3`:
+
+A modified `cpen212alloc.c` with your consistency checker. (Optional.)
+
+
+== Task 4: coalesce with previous
+
+=== What you need to do
+
+Extend your implementation from the previous task to implement coalescing *before* the freed block (i.e., with the previous block if it is not allocated).
+
+We recommend that you implement this as a separate function `cpen212_coalesce()` that you call at the end of `cpen212_free()`; this is easier to get right because you need to debug a much smaller piece of code. You will not, however, lose points either if you choose to add the coalescer directly to `cpen212_free()`.
+
+
+=== Deliverables
+
+In `task4`:
+
+A modified `cpen212alloc.c` with your allocator implemented as described above.
+
+
+== Task 5: coalesce both ways
+
+=== What you need to do
+
+Extend your implementation from the previous task to implement coalescing *both before and after* the freed block.
+
+
+=== Deliverables
+
+In `task5`:
+
+A modified `cpen212alloc.c` with your allocator implemented as described above.
+
+== Marks
+
+* Task 1: 2
+* Task 2: 4
+* Task 3: 0 (but up to 1 bonus)
+* Task 4: 2
+* Task 5: 2
+
+
+== Bonus
+
+=== Proper heap checker
+
+To encourage you to implement a good heap consistency checker (task 3), we will award you up to one bonus point, depending on how good your checker is.
+
+
+=== Space and time efficiency
+
+You may receive up to one bonus point for implementing a version of your allocator that limits fragmentation as much as possible. There are many approaches to this: best-fit free block choice, a better `cpen212_realloc()`, segmented freelists, etc.
+
+You may also receive up to one bonus point for implementing a version of your allocator that operates at or near maximum possible throughput. A low-effort thing to try are things like next fit or best fit. For anything fancy you will need to keep an explicit freelist; once you've done that, you can experiment with insertion policies and implementing things like segmented freelists and/or freelist caches.
