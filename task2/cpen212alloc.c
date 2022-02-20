@@ -109,7 +109,8 @@ void cpen212_free(void *alloc_state, void *p) {
 
     if (s->free > temp) {  // adjust the free pointer if the freed space address is smaller than the current free pointer
         s->free = temp - 1;
-        temp_size = s->free - 1;
+        printf("s->free %p\n", s->free);
+        temp_size = s->free;
         if ((temp_size->size % 8) == 1) {  // set if allocated to false
             temp_size->size = temp_size->size - 1; 
         }
