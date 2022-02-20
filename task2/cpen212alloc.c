@@ -82,19 +82,21 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
         temp->size = temp->size + 1;
         
     } else if (aligned_sz > s->free->size) {  // loop through the list, s->free stays where it is
-        alloc_node *curr = s->free;
 
         // loop through the list to look for free space and check if its large enough
-        while ((curr->size & 1) || (curr->size < aligned_sz)) {
-            if ((curr + (curr->size / 8)) > s->end) {
+        while ((temp->size % 8 == 1)) {
+            if ((temp + (temp->size / 8)) > s->end) {
                 return NULL;
             }
-            curr = curr + (curr->size / 8);
+            if ((temp->size == 0)) {
+                break;
+            }
+            temp = temp + (temp->size / 8);
         }
         
         // set if allocated to true
-        curr->size = aligned_sz;
-        curr->size = curr->size | 1;
+        temp->size = aligned_sz;
+        temp->size = temp->size + 1;
     }
 
     return (temp + 1);
