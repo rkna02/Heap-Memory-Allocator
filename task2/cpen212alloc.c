@@ -36,16 +36,16 @@ void *cpen212_init(void *heap_start, void *heap_end) {
 }
 
 void cpen212_deinit(void *alloc_state) {
-    /*
+    
     alloc_state_t *s = (alloc_state_t *) alloc_state;  
     alloc_node *temp = s->end; 
     while (temp) {
-        if (temp->a == true) {
+        if (temp->size & 1) {
             cpen212_free((alloc_state_t *) s, (alloc_node *) temp);
         }
-        temp = temp - temp->size;
+        temp = temp - (temp->size / 8);
     }
-    */
+    
 }
 
 void *cpen212_alloc(void *alloc_state, size_t nbytes) {
@@ -66,6 +66,7 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
 
     // second case: nbytes less or equal to the free space: directly change the "free" pointer after allocating
     if (aligned_sz < s->free->size) {
+        printf("first case\n");
         // update free 
         uint64_t newsize = s->free->size - aligned_sz;
         // printf("new size: %" PRIu64 "\n", newsize);
@@ -78,6 +79,7 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
         temp->size = temp->size | 1;  // change the last bit to 1 to indicate the space is allocated
 
     } else if (aligned_sz == s->free->size) {  
+        printf("second case\n");
         // update free 
         s->free = s->free + (aligned_sz / 8);  
 
@@ -89,12 +91,14 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
         temp->size = aligned_sz;
         temp->size = temp->size | 1;
         
-    } else {  // if aligned_sz > s->free->size, loop through the list, s->free stays where it is
+    } else if (aligned_sz > s->free->size) {  // loop through the list, s->free stays where it is
+        printf("thrid case\n");
+        /*
         alloc_node *curr = s->free;
 
         // loop through the list to look for free space and check if its large enough
         while ((curr->size & 1) || (curr->size < aligned_sz)) {
-            if (curr + (curr->size / 8) > s->end) {
+            if ((curr + (curr->size / 8)) > s->end) {
                 return NULL;
             }
             curr = curr + (curr->size / 8);
@@ -103,6 +107,8 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
         // set if allocated to true
         curr->size = aligned_sz;
         curr->size = curr->size | 1;
+        */
+        return NULL;
     }
 
     //printf("pointer to the space that just got allocated: %p\n", temp);
@@ -118,7 +124,10 @@ void cpen212_free(void *alloc_state, void *p) {
 
     if (s->free > temp) {  // adjust the free pointer if the freed space address is smaller than the current free pointer
         s->free = temp;
-        s->free->size = s->free->size & 0;  // set if allocated to false
+        printf("s->free->size beforehand %" PRIu64 "\n", s->free->size);
+        if ((s->free->size / 8) != 0) {
+            s->free->size = s->free->size - 1;  // set if allocated to false
+        }
     } else {  // else, adjust the allocated flag and change it to 0 (meaning the space is free)
         temp->size = temp->size & 0;
     }
@@ -145,13 +154,17 @@ bool cpen212_check_consistency(void *alloc_state) {
 int main() {
     alloc_state_t *s = (alloc_state_t *) malloc(64);
     alloc_state_t *p = (alloc_state_t *) cpen212_init(s, (s+0x4));
-    alloc_node *point = (alloc_node *) cpen212_alloc(p, 0x8);
+
     printf("s->free %p\n", p->free);
-    alloc_node *point1 = (alloc_node *) cpen212_alloc(p, 0x8);
+    alloc_node *point = (alloc_node *) cpen212_alloc(p, 0x8);  // allocate 16 bytes
     printf("s->free %p\n", p->free);
+    alloc_node *point1 = (alloc_node *) cpen212_alloc(p, 0x8);  // allocate 16 bytes
+    printf("s->free %p\n", p->free);
+
+    cpen212_free((alloc_state_t *)p, (alloc_node *) point);
+    printf("s->free->size %" PRIu64 "\n", p->free->size);
     alloc_node *point2 = (alloc_node *) cpen212_alloc(p, 0x8);
     printf("s->free %p\n", p->free);
     alloc_node *point3 = (alloc_node *) cpen212_alloc(p, 0x8);
     printf("s->free %p\n", p->free);
-    //cpen212_free(s, point);
 } 
