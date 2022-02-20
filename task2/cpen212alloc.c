@@ -125,15 +125,15 @@ void cpen212_free(void *alloc_state, void *p) {
 void *cpen212_realloc(void *alloc_state, void *prev, size_t nbytes) {
     alloc_state_t *s = (alloc_state_t *) alloc_state;
     alloc_node *p = cpen212_alloc(s, nbytes);
-    alloc_node *prev_size = prev - 1;
+    alloc_node *prev_size_ptr = prev - 1;
+    uint64_t prev_size = prev_size_ptr->size - 1;
 
-    if (prev_size->size < nbytes) {
-        size_t nbytes_new = prev_size->size;
+    if (prev_size <= nbytes) {
+        uint64_t nbytes_new = prev_size;
         memmove(p, prev, nbytes_new);
     } else {
         memmove(p, prev, nbytes);
     }
-
     return p; 
 }
 
