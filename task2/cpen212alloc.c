@@ -53,14 +53,11 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
     
     alloc_state_t *s = (alloc_state_t *) alloc_state;  // give s the access of end and free pointers
     uint64_t aligned_sz = (uint64_t) ((nbytes + 7 + 8) & ~7);  // 8 byte align the aligned size (including the size of the header)
-    //printf("aligned_sz: %" PRIu64 "\n", aligned_sz);
     alloc_node *temp = s->free; 
 
     // first case: nbyte is 0, alloc_state at the end of list, or no more space avaliable 
     if (nbytes == 0 || (temp >= s->end) || (temp + (aligned_sz/8) > s->end)) {  // fulfills fucntion specs, double checked
         printf("null\n");
-        printf("temp + aligned_sz %p\n", temp + aligned_sz);
-        printf("s->end %p\n", s->end);
         return NULL;
     }
 
@@ -71,12 +68,9 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
     if (aligned_sz < s->free->size) {
         // update free 
         uint64_t newsize = s->free->size - aligned_sz;
-       // printf("new size: %" PRIu64 "\n", newsize);
+        // printf("new size: %" PRIu64 "\n", newsize);
 
-        s->free = s->free + (aligned_sz / 8);
-        //printf("incrementing free pointer: %p\n", s->free);
-        
-        //s->free->space = s->free + 0x8; 
+        s->free = s->free + (aligned_sz / 8);       
         s->free->size = newsize;
 
         // update new node object  
@@ -85,24 +79,24 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
 
     } else if (aligned_sz == s->free->size) {  
         // update free 
-        alloc_node *curr = s->free;
         s->free = s->free + (aligned_sz / 8);  
 
         while (s->free->size & 1) {  // while allocated == true
-            s->free = s->free + s->free->size;  
+            s->free = s->free + (s->free->size / 8);  
         }
-        //s->free->space = (uint64_t *) (s->free + 0x8);
 
         // update new node object  
         temp->size = aligned_sz;
         temp->size = temp->size | 1;
         
-       // printf("aligned_sz == s->free->size\n");
-    } else {  // if aligned_sz > s->free->size
+    } else {  // if aligned_sz > s->free->size, loop through the list, s->free stays where it is
         alloc_node *curr = s->free;
-        
 
-        return temp;
+        // loop through the 
+        while (curr->size & 1 || curr->size < aligned_sz) {
+            curr = curr + (curr->size / 8);
+        }
+        
     }
 
     //printf("pointer to the space that just got allocated: %p\n", temp);
