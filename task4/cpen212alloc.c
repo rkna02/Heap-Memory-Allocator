@@ -86,8 +86,8 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
                 break;
             }
             s->free = s->free + (s->free->size / 8);  
-            s->tail = s->free + (s->free->size / 8) - 1;
         }       
+        s->tail = s->free + (s->free->size / 8) - 1;
         
         // update new node object  
         temp->size = aligned_sz;
@@ -103,40 +103,29 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
             if ((temp + (temp->size / 8)) > s->end) {
                 return NULL;
             }
-
             temp = temp + (temp->size / 8);
-            printf("s->end %p\n", s->end);
-            printf("temp %p\n", temp);
-            printf("temp->size %" PRIu64 "\n", temp->size);
-            printf("aligned_sz %" PRIu64 "\n", aligned_sz);
         }
         
         if (temp->size == aligned_sz) {
-            temp->size = aligned_sz;
             temp->size = temp->size + 1;
             temp1 = temp + (temp->size / 8) - 1;
-            temp1->size = aligned_sz + 1;
+            temp1->size = temp->size;
         } 
         else {
             uint64_t newsize = temp->size - aligned_sz;  // new size
             alloc_node *next = temp + (aligned_sz / 8);
+            alloc_node *next1 = temp + (aligned_sz / 8);
             temp->size = aligned_sz;
             temp->size = temp->size + 1;
             temp1 = temp + (temp->size / 8) - 1;
-            temp1->size = aligned_sz + 1;
+            temp1->size = temp->size + 1;
             next->size = newsize;
-            next = next + (next->size / 8) - 1;
-            next->size = newsize;
+            next1 = next + (next->size / 8) - 1;
+            next1->size = newsize;
         }
 
     }
-  
-    printf("---------------------------------------\n");
-    printf("s->free %p\n", s->free);
-    printf("s->free->size %" PRIu64 "\n", s->free->size);
-    printf("allocated at:  %p\n", temp);
-    printf("allocated->size %" PRIu64 "\n", temp->size);
-   
+
     return (temp + 1);
 }
 
@@ -155,7 +144,7 @@ void cpen212_free(void *alloc_state, void *p) {
         s->tail = s->free + (s->free->size / 8) - 1;
         if ((temp_size->size % 8) == 1) {  // set if allocated to false
             temp_size->size = temp_size->size - 1; 
-            s->tail->size = s->tail->size - 1;
+            s->tail->size = temp_size->size;
         }
     } else {  // else, adjust the allocated flag and change it to 0 (meaning the space is free)
         if ((temp_size->size % 8) == 1) {
@@ -166,11 +155,6 @@ void cpen212_free(void *alloc_state, void *p) {
     }
 
     cpen212_coalesce(s, temp);
-
-    printf("s->free %p\n", s->free);
-    printf("s->free->size %" PRIu64 "\n", s->free->size);
-    printf("deallocated at: %p\n", temp_size);
-    printf("deallocated->size %" PRIu64 "\n", temp_size->size);
     
 }
 
@@ -178,9 +162,6 @@ void cpen212_coalesce(void *alloc_state, void *p) {
     alloc_state_t *s = (alloc_state_t *) alloc_state;
     alloc_node *temp = (alloc_node *) p;
     alloc_node *temp_size = temp - 1;
-
-    printf("temp_size: %p\n", temp_size);
-    printf("s->start: %p\n", s->start);
 
     if (temp_size == s->start) {
         return;
@@ -191,7 +172,6 @@ void cpen212_coalesce(void *alloc_state, void *p) {
     alloc_node *newtail;
 
     if (prev->size % 8 == 0) {
-
         uint64_t newsize = prev->size + temp_size->size;  // calculate size 
         // new tail
         newtail = temp_size + (temp_size->size / 8) - 1;
@@ -200,8 +180,7 @@ void cpen212_coalesce(void *alloc_state, void *p) {
         // new header
         newheader = prev - (prev->size / 8) + 1;
         newheader->size = newsize;
-        prev->size = 0;
-
+        (temp_size - 1)->size = 0;
     }
 
     if (s->free > newheader) {
@@ -379,3 +358,4 @@ int main() {
     }
 }
 */
+
