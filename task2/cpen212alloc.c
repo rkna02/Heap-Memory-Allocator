@@ -37,19 +37,7 @@ void *cpen212_init(void *heap_start, void *heap_end) {
 }
 
 void cpen212_deinit(void *alloc_state) {
-    alloc_state_t *s = (alloc_state_t *) alloc_state;  
-    alloc_node *temp = s->start; 
-    while (s->start < s->alloc_end) {
-        if (s->start->size % 8 == 1) {     
-            cpen212_free((alloc_state_t *) s, (alloc_node *) temp);
-        }
-        s->start = s->start + ((s->start->size) / 8);
-    }
-
-    // reset pointers
-    s->start = temp;
-    s->alloc_end = temp;
-    s->free = temp;
+    free(alloc_state);
 }
 
 void *cpen212_alloc(void *alloc_state, size_t nbytes) {
@@ -154,18 +142,21 @@ void cpen212_free(void *alloc_state, void *p) {
 }
 
 void *cpen212_realloc(void *alloc_state, void *prev, size_t nbytes) {
+    if (nbytes == 0) {  // base case, if nbytes == NULL
+        return NULL;
+    }
+
     alloc_state_t *s = (alloc_state_t *) alloc_state;
     alloc_node *p = cpen212_alloc(s, nbytes);
-    alloc_node *prev_size_ptr = prev - 1;
-    uint64_t prev_size = prev_size_ptr->size - 1;
+    alloc_node *prev_size_ptr = prev - 1;  // pointer that points to the size of the block that we want to reallocate
+    uint64_t prev_size = prev_size_ptr->size - 1;  // ignore the indication for allocation
 
-    if (p == NULL) {
-        return NULL;
-    } else if (prev_size <= nbytes) {  // only move prev_size (or else it moves more content)
-        uint64_t nbytes_new = prev_size;
-        memmove(p, prev, nbytes_new);
-    } else {
+    if (prev_size == (uint64_t) nbytes) {
+        return prev;
+    } else if (prev_size < (uint64_t) nbytes) {  // only move prev_size (or else it moves more content)
         memmove(p, prev, nbytes);
+    } else {
+        memmove(p, prev, prev_size);
     }
 
     return p; 
@@ -285,5 +276,7 @@ int main() {
 
 }
 */
+
+
 
 
