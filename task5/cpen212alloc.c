@@ -40,8 +40,6 @@ void *cpen212_init(void *heap_start, void *heap_end) {
 }
 
 void cpen212_deinit(void *s) {
-    printf("dqfqfqfqfqf\n");
-    sleep(3);
     free(s);
 }
 
@@ -104,9 +102,6 @@ void *cpen212_alloc(void *alloc_state, size_t nbytes) {
 
             if ((temp + (temp->size / 8)) > s->end) {
                 return NULL;
-            }
-            if (temp->size == 0) {
-                sleep(1000);
             }
             temp = temp + (temp->size / 8);
         }
@@ -417,6 +412,7 @@ int main() {
     
 }
 */
+
 
 
 
